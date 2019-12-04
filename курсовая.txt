@@ -1,0 +1,271 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+struct Text{
+	char** content;
+	int size_text;
+};
+
+char* readSentences(FILE *input_stream){
+	char c;
+	int size_sen=3;
+	char* sen=calloc(size_sen, sizeof(char));
+	if (sen==NULL){
+		printf("Error:Out of memory\n");
+                exit(1);
+	}
+	char* memory_check;
+	int i=0;
+	while((c=fgetc(input_stream))!='.'&& c!='\n'){
+		if (i>=size_sen-3){
+			memory_check=realloc(sen, (size_sen+=10)*sizeof(char));
+			if (memory_check==NULL){
+				printf("Error:Out of memory\n");
+				return NULL;
+			}
+			else
+				sen=memory_check;
+		}
+		sen[i++]=c;
+	}
+	sen[i++]=c;
+	sen[i]='\0';
+	return sen;
+}
+
+struct Text readText(FILE *input_stream){
+	int j=0;
+	char f;
+	struct Text text;
+	char** memory_check;
+	text.size_text=1;
+	text.content=calloc(text.size_text, sizeof(char*));
+	if (text.content==NULL){
+                printf("Error:Out of memory\n");
+                exit(1);
+        }
+	do{	
+		if (j>=text.size_text){
+			memory_check=realloc(text.content, (text.size_text+=1)*sizeof(char*));
+			if (memory_check==NULL){
+                                printf("Error:Out of memory\n");
+                                return text;
+                        }
+                        else
+        	                text.content=memory_check;
+		}
+		text.content[j]=readSentences(input_stream);
+	}while(strcmp(text.content[j++], "\n")!=0);
+	free (text.content[j-1]); //delete line with solo \n 
+	text.size_text-=1;
+	return text;
+}
+
+void remove_duplicate_sen(struct Text *text){
+        char* sen1;
+        char* sen2;
+        for (int j=0; j<text->size_text; j++){
+                sen1=calloc(strlen(*(text->content+j))+1, sizeof(char));
+		if (sen1==NULL){
+                	printf("Error:Out of memory\n");
+                	exit(1);
+        	}
+                strcpy(sen1, *(text->content+j));
+                for (int g=0; g<strlen(sen1); g++)
+                        sen1[g]=tolower(sen1[g]);
+                for (int i=j+1; i<text->size_text; i++){
+                        sen2=calloc(strlen(*(text->content+i))+1,sizeof(char));
+			if (sen2==NULL){
+                        	printf("Error:Out of memory\n");
+                        	exit(1);
+                	}
+                        strcpy(sen2, *(text->content+i));
+                        for (int g=0; g<strlen(sen2); g++)
+                                sen2[g]=tolower(sen2[g]);
+                        if (strcmp(sen1, sen2)==0){
+                                free (*(text->content+i));
+                                for (int k=i; k<text->size_text-1; k++)
+                                        *(text->content+k)=*(text->content+k+1);
+                                text->size_text-=1;
+				i-=1;
+                        }
+                free(sen2);
+                }
+        free(sen1);
+         }
+}
+
+void print_digit_sen(const struct Text* text){
+        int i,j;
+        int n=0;
+        for (j=0; j<text->size_text; j++){
+                for (i=0; i<strlen(text->content[j]); i++){
+                        if (isdigit(text->content[j][i])!=0)
+                                n=1;
+                        if (isalpha(text->content[j][i])!=0){
+                                n=0;
+                                break;
+                        }
+                }
+                if (n==1)
+                        printf ("%s", text->content[j]);
+        }
+        printf ("\n");
+}
+
+int max_upper (const void* a, const void* b){
+	char** sen1=(char**)a;
+	char** sen2=(char**)b;
+	int count_upper1=0;
+	int count_upper2=0;
+	for (int i=0; i<strlen(*sen1); i++){
+		if (isupper(*(*sen1+i))!=0)
+			count_upper1+=1;
+	}
+	for (int i=0; i<strlen(*sen2); i++){
+		if (isupper(*(*sen2+i))!=0)
+			count_upper2+=1;
+	}
+	return count_upper2-count_upper1;
+}
+
+int check_duplicate_word (const char* orig_sen){
+	int f=0;
+	char* copy_sen=calloc(strlen(orig_sen)+1, sizeof(char));
+	if (copy_sen==NULL){
+                        printf("Error:Out of memory\n");
+                        exit(1);
+                }
+	copy_sen=strcpy(copy_sen, orig_sen);
+	int size_arr=20;
+	char** array_words=calloc(size_arr, sizeof(char*));
+	if (array_words==NULL){
+                        printf("Error:Out of memory\n");
+                        exit(1);
+                }
+	int k=0;
+	char* word=strtok(copy_sen, ", .");
+	while(word!=NULL){
+		if (k>=size_arr){
+			array_words=realloc(array_words, (size_arr+=1)*sizeof(char*));
+			if (array_words==NULL){
+				printf ("Out of memory");
+				exit(1);
+			}
+		}
+		array_words[k++]=word;
+		word=strtok(NULL, ", .");
+	}
+	for (int i=0; i<k-1; i++){
+		for (int j=i+1; j<k; j++){
+			if (strcmp(array_words[i], array_words[j])==0){
+				f=1;
+			}
+		}
+	}
+	free(copy_sen);
+	free (array_words);
+	return f;
+}
+
+void replace_digit_for_substr(struct Text* text){
+	char numbers[][6]={"Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"};
+	int num;
+	char* c;
+	char* new_sen;
+	int size_new_sen;
+	for (int j=0; j<text->size_text; j++){
+		size_new_sen=strlen(text->content[j])+1;
+		for (int i=0; i<strlen(text->content[j])-1; i++){
+			if (isdigit(text->content[j][i])!=0){
+				new_sen=calloc((size_new_sen+=6), sizeof(char));
+				if (new_sen==NULL){
+                        		printf("Error:Out of memory\n");
+                        		exit(1);
+               			}
+				num=text->content[j][i]-48;
+				strncat(new_sen, text->content[j], i);
+				strcat(new_sen, numbers[num]);
+				strcat(new_sen, *(text->content+j)+i+1);
+				c=text->content[j];
+                		text->content[j]=new_sen;
+				new_sen=c;
+                		free(new_sen);
+
+			}
+		}
+	}
+}
+				
+void printText(const struct Text* text){
+	for (int j=0; j<text->size_text; j++)
+		printf ("%s", text->content[j]);
+	printf ("\n");
+}
+
+
+
+int main(){
+	int f;
+	char d;
+	struct Text text;
+	char* file_name=calloc(200, sizeof(char));
+	printf("Считывать текст из файла?[y/n]\n");
+	scanf("%c%*c", &d);
+	switch (d){
+	case 'y': 
+		printf ("Введите название файла:\n");
+		fgets (file_name, 200, stdin);
+		for (int i=0; i<200; i++){
+			if (file_name[i]=='\n'){
+				file_name[i]='\0';
+				break;
+			}
+		}
+	        FILE *file_point;
+		if ((file_point=fopen(file_name, "r"))==NULL){
+			printf("Файл невозможно открыть\n");
+			return 0;
+		}
+		text=readText(file_point);
+		fclose(file_point);
+		break;
+	case 'n':printf ("Введите текст:\n");
+	     	text=readText(stdin);
+		break;
+	default: return 0;
+	}
+	free (file_name);
+	remove_duplicate_sen(&text);
+	do{
+        	printf ("Введите цифру, чтобы выполнить следующие действия:\n1 - вывести предложения, состоящие только из цифр\n2 - отсортировать предложения по количеству букв в верхнем регистре\n3 - удалить предложения, в которых какое-то слово встречается 2 и более раз\n4 - заменить каждое вхождение цифры на соответствующую подстрочку\n5 - вывести текст\n0 - выйти из программы\n");
+                scanf ("%d", &f);
+                switch (f){
+                case 1: print_digit_sen(&text);
+                        break;
+		case 2: qsort(text.content, text.size_text, sizeof(char*),  max_upper);
+			break;
+		case 3: for (int j=0; j<text.size_text; j++){
+				if (check_duplicate_word(text.content[j])==1){
+						free (text.content[j]);
+						for (int k=j; k<text.size_text-1; k++)
+							text.content[k]=text.content[k+1];
+						text.size_text-=1;
+						j--;
+				}
+			}
+			break;
+		case 4: replace_digit_for_substr(&text);
+			break;
+		case 5: printText(&text);
+			break;
+                case 0: break;
+                }
+        }while (f!=0);
+        for (int j=0; j<text.size_text; j++)
+                free (text.content[j]);
+        free (text.content);
+        return 0;
+        }
